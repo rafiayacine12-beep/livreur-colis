@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.json">
+<title>Livreur - Mes colis</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f1f5f9;color:#0f172a;padding-bottom:90px}
+header{position:sticky;top:0;z-index:5;background:#0f766e;color:#fff;padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top))}
+header h1{margin:0;font-size:18px}
+.stats{display:flex;gap:6px;margin-top:8px;overflow-x:auto}
+.chip{flex:0 0 auto;background:rgba(255,255,255,.18);border-radius:999px;padding:5px 11px;font-size:13px;border:0;color:#fff}
+.chip.on{background:#fff;color:#0f766e;font-weight:700}
+.bar{padding:10px 14px;display:flex;gap:8px}
+.bar input,.bar select{flex:1;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font-size:15px;background:#fff;min-width:0}
+.card{background:#fff;margin:10px 14px;border-radius:14px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:6px solid #94a3b8}
+.card.confirme{border-left-color:#16a34a}.card.reporte{border-left-color:#f59e0b}.card.annule{border-left-color:#dc2626}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.name{font-weight:700;font-size:17px}
+.meta{color:#475569;font-size:14px;margin-top:3px}
+.price{font-weight:700;color:#0f766e;white-space:nowrap}
+.tag{display:inline-block;background:#e2e8f0;border-radius:6px;padding:2px 8px;font-size:12px;margin-right:4px}
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.btns button,.call{border:0;border-radius:10px;padding:11px 4px;font-size:14px;font-weight:600}
+.b-ok{background:#dcfce7;color:#166534}.b-pr{background:#fef3c7;color:#92400e}.b-no{background:#fee2e2;color:#991b1b}
+.b-ok.sel{background:#16a34a;color:#fff}.b-pr.sel{background:#f59e0b;color:#fff}.b-no.sel{background:#dc2626;color:#fff}
+.call{display:block;text-align:center;background:#0f766e;color:#fff;text-decoration:none;margin-top:8px}
+.small{display:flex;gap:14px;margin-top:8px;font-size:13px}
+.small button{background:none;border:0;color:#64748b;text-decoration:underline;padding:4px 0}
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:6}
+.fab button{border:0;border-radius:999px;padding:15px 20px;font-size:16px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.fab .cam{background:#0f766e;color:#fff}.fab .man{background:#fff;color:#0f766e}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:flex-end;z-index:20}
+.modal.show{display:flex}
+.sheet{background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.sheet h2{margin:0 0 10px;font-size:18px}
+label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
+.sheet input,.sheet select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px}
+.sheet .go{width:100%;margin-top:14px;background:#0f766e;color:#fff;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:700}
+.sheet .cancel{width:100%;margin-top:8px;background:#e2e8f0;border:0;border-radius:12px;padding:12px;font-size:15px}
+.prev{width:100%;max-height:160px;object-fit:contain;border-radius:10px;background:#f1f5f9}
+.sheet input.bad{border-color:#dc2626;background:#fef2f2}
+.status{font-size:13px;color:#0f766e;margin:8px 0;min-height:18px}
+.raw{font-size:12px;color:#64748b;white-space:pre-wrap;background:#f8fafc;border-radius:8px;padding:8px;max-height:90px;overflow:auto;margin-top:8px}
+.empty{text-align:center;color:#64748b;padding:50px 20px}
+.foot{display:flex;gap:8px;padding:6px 14px}
+.foot button{flex:1;border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:10px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📦 Mes colis <span id="today" style="font-weight:400;font-size:13px"></span></h1>
+  <div class="stats" id="stats"></div>
+</header>
+<div class="bar">
+  <input id="q" type="search" placeholder="Bhath: smiya, numéro, tel...">
+  <select id="zf"></select>
+</div>
+<div id="list"></div>
+<div class="foot">
+  <button id="csv">Copier tableau (CSV)</button>
+  <button id="clear">Mseh kolchi</button>
+</div>
+
+<div class="fab">
+  <button class="man" id="addMan">✍️ Ydawi</button>
+  <button class="cam" id="addCam">📷 Sswer</button>
+</div>
+<input id="file" type="file" accept="image/*" capture="environment" hidden>
+
+<div class="modal" id="modal"><div class="sheet">
+  <h2 id="mt">Colis jdid</h2>
+  <img id="prev" class="prev" alt="" style="display:none">
+  <div class="status" id="ocrs"></div>
+  <label>Numéro (tracking)</label><input id="f_num" autocomplete="off">
+  <label>Smiya dyal client</label><input id="f_name" autocomplete="off">
+  <label>Téléphone</label><input id="f_tel" type="tel" inputmode="tel" autocomplete="off">
+  <label>Taman (DH)</label><input id="f_price" inputmode="decimal" autocomplete="off">
+  <label>Zone / Ville</label><input id="f_zone" list="zones" autocomplete="off">
+  <datalist id="zones"></datalist>
+  <button class="go" id="save">Sajjel ✔</button>
+  <button class="cancel" id="cancel">Elgha</button>
+  <div class="raw" id="raw" style="display:none"></div>
+</div></div>
+
+<div class="modal" id="dmodal"><div class="sheet">
+  <h2>Reporté — l'ayy yom?</h2>
+  <label>Date</label><input id="f_date" type="date">
+  <label>Molahada (ikhtiyari)</label><input id="f_note" autocomplete="off">
+  <button class="go" id="dsave">Sajjel</button>
+  <button class="cancel" id="dcancel">Elgha</button>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const KEY='livreur_colis_v1';
+let items=[];try{items=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){}
+let filter='all',editId=null,pendingPR=null,worker=null;
+const $=id=>document.getElementById(id);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LBL={attente:'En attente',confirme:'Confirmé',reporte:'Reporté',annule:'Annulé'};
+$('today').textContent=new Date().toLocaleDateString('fr-FR');
+
+function render(){
+  const zs=[...new Set(items.map(i=>i.zone).filter(Boolean))].sort();
+  const zv=$('zf').value;
+  $('zf').innerHTML='<option value="">Koll zones</option>'+zs.map(z=>`<option ${z===zv?'selected':''}>${esc(z)}</option>`).join('');
+  $('zones').innerHTML=zs.map(z=>`<option value="${esc(z)}">`).join('');
+  const c=k=>items.filter(i=>i.status===k).length;
+  const defs=[['all','Koll',items.length],['attente','Attente',c('attente')],['confirme','Confirmé',c('confirme')],['reporte','Reporté',c('reporte')],['annule','Annulé',c('annule')]];
+  $('stats').innerHTML=defs.map(([k,l,n])=>`<button class="chip ${filter===k?'on':''}" data-f="${k}">${l} ${n}</button>`).join('')
+    +`<span class="chip">💰 ${items.filter(i=>i.status==='confirme').reduce((s,i)=>s+(parseFloat(i.price)||0),0)} DH</span>`;
+  const q=$('q').value.trim().toLowerCase(),z=$('zf').value;
+  const list=items.filter(i=>(filter==='all'||i.status===filter)&&(!z||i.zone===z)&&(!q||[i.num,i.name,i.tel,i.zone].join(' ').toLowerCase().includes(q)));
+  $('list').innerHTML=list.length?list.map(i=>`
+  <div class="card ${i.status}" data-id="${i.id}">
+    <div class="row"><div><div class="name">${esc(i.name)||'(bla smiya)'}</div>
+      <div class="meta">${i.zone?`<span class="tag">📍 ${esc(i.zone)}</span>`:''}<span class="tag">${LBL[i.status]}${i.status==='reporte'&&i.date?' · '+esc(i.date):''}</span></div>
+      <div class="meta">#${esc(i.num)||'—'} · ${esc(i.tel)||'bla tel'}</div>
+      ${i.note?`<div class="meta">📝 ${esc(i.note)}</div>`:''}</div>
+      <div class="price">${esc(i.price)||'0'} DH</div></div>
+    ${i.tel?`<a class="call" href="tel:${esc(i.tel)}">📞 3ayet</a>`:''}
+    <div class="btns">
+      <button class="b-ok ${i.status==='confirme'?'sel':''}" data-a="confirme">✔ Confirmé</button>
+      <button class="b-pr ${i.status==='reporte'?'sel':''}" data-a="reporte">⏳ Reporté</button>
+      <button class="b-no ${i.status==='annule'?'sel':''}" data-a="annule">✖ Annulé</button>
+    </div>
+    <div class="small"><button data-a="edit">Ta3dil</button><button data-a="del">Mseh</button>${i.status!=='attente'?'<button data-a="reset">Raje3 attente</button>':''}</div>
+  </div>`).join(''):'<div class="empty">Ma kayn ta colis.<br>Dghat 📷 Sswer bach tzid colis.</div>';
+}
+
+$('stats').onclick=e=>{const f=e.target.dataset.f;if(f){filter=f;render()}};
+$('q').oninput=render;$('zf').onchange=render;
+
+$('list').onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const card=b.closest('.card'),it=items.find(i=>i.id===card.dataset.id),a=b.dataset.a;
+  if(a==='reporte'){pendingPR=it.id;$('f_date').value=it.date||new Date(Date.now()+864e5).toISOString().slice(0,10);$('f_note').value=it.note||'';$('dmodal').classList.add('show');return}
+  if(a==='confirme'||a==='annule'){it.status=a;save();render()}
+  else if(a==='reset'){it.status='attente';save();render()}
+  else if(a==='del'){if(confirm('Tmseh had colis?')){items=items.filter(x=>x!==it);save();render()}}
+  else if(a==='edit')openForm(it);
+};
+$('dsave').onclick=()=>{const it=items.find(i=>i.id===pendingPR);it.status='reporte';it.date=$('f_date').value;it.note=$('f_note').value;save();$('dmodal').classList.remove('show');render()};
+$('dcancel').onclick=()=>$('dmodal').classList.remove('show');
+
+function openForm(it,preview,raw){
+  editId=it?it.id:null;
+  $('mt').textContent=it?'Ta3dil colis':'Colis jdid';
+  $('f_num').value=it?.num||'';$('f_name').value=it?.name||'';$('f_tel').value=it?.tel||'';$('f_price').value=it?.price||'';$('f_zone').value=it?.zone||'';
+  $('prev').style.display=preview?'block':'none';if(preview)$('prev').src=preview;
+  $('raw').style.display=raw?'block':'none';$('raw').textContent=raw||'';
+  $('ocrs').textContent='';$('modal').classList.add('show');
+}
+$('cancel').onclick=()=>$('modal').classList.remove('show');
+$('addMan').onclick=()=>openForm(null);
+$('save').onclick=()=>{
+  const d={num:$('f_num').value.trim(),name:$('f_name').value.trim(),tel:$('f_tel').value.replace(/[^\d+]/g,''),price:$('f_price').value.trim(),zone:$('f_zone').value.trim()};
+  if(!d.num&&!d.name&&!d.tel){alert('Zid 3la l9all numéro wla smiya wla tel');return}
+  if(editId)Object.assign(items.find(i=>i.id===editId),d);
+  else items.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),status:'attente',...d});
+  save();$('modal').classList.remove('show');render();
+};
+
+/* ---------- OCR ---------- */
+
+function findLabelRect(data,w,h){
+  const sc=Math.min(1,400/Math.max(w,h)),gw=Math.max(1,Math.round(w*sc)),gh=Math.max(1,Math.round(h*sc));
+  let m=new Uint8Array(gw*gh);
+  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){
+    const i=((Math.min(h-1,Math.round(y/sc)))*w+Math.min(w-1,Math.round(x/sc)))*4;
+    const r=data[i],g=data[i+1],b=data[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+    if(mx>150&&(mx-mn)<0.176*mx)m[y*gw+x]=1;
+  }
+  const R=3,t=new Uint8Array(gw*gh),d=new Uint8Array(gw*gh);
+  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){let v=0;for(let k=-R;k<=R&&!v;k++){const xx=x+k;if(xx>=0&&xx<gw&&m[y*gw+xx])v=1}t[y*gw+x]=v}
+  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){let v=0;for(let k=-R;k<=R&&!v;k++){const yy=y+k;if(yy>=0&&yy<gh&&t[yy*gw+x])v=1}d[y*gw+x]=v}
+  const lab=new Int32Array(gw*gh);let best=0,bestId=0,id=0;
+  for(let s=0;s<gw*gh;s++){if(!d[s]||lab[s])continue;id++;let n=0;const st=[s];lab[s]=id;
+    while(st.length){const p=st.pop();n++;const x=p%gw,y=(p/gw)|0;
+      if(x>0&&d[p-1]&&!lab[p-1]){lab[p-1]=id;st.push(p-1)}
+      if(x<gw-1&&d[p+1]&&!lab[p+1]){lab[p+1]=id;st.push(p+1)}
+      if(y>0&&d[p-gw]&&!lab[p-gw]){lab[p-gw]=id;st.push(p-gw)}
+      if(y<gh-1&&d[p+gw]&&!lab[p+gw]){lab[p+gw]=id;st.push(p+gw)}}
+    if(n>best){best=n;bestId=id}}
+  if(best<gw*gh*0.08)return null;
+  const pts=[];
+  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++)if(lab[y*gw+x]===bestId&&m[y*gw+x])pts.push([x,y]);
+  pts.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[];for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}
+  const up=[];for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}
+  const hull=lo.slice(0,-1).concat(up.slice(0,-1));
+  let bestA=Infinity,res=null;
+  for(let i=0;i<hull.length;i++){
+    const a=hull[i],b=hull[(i+1)%hull.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(!L)continue;
+    const ux=(b[0]-a[0])/L,uy=(b[1]-a[1])/L,vx=-uy,vy=ux;
+    let u0=1e9,u1=-1e9,v0=1e9,v1=-1e9;
+    for(const p of hull){const pu=p[0]*ux+p[1]*uy,pv=p[0]*vx+p[1]*vy;if(pu<u0)u0=pu;if(pu>u1)u1=pu;if(pv<v0)v0=pv;if(pv>v1)v1=pv}
+    const A=(u1-u0)*(v1-v0);
+    if(A<bestA){bestA=A;const cu=(u0+u1)/2,cv=(v0+v1)/2;
+      res={cx:(cu*ux+cv*vx)/sc,cy:(cu*uy+cv*vy)/sc,w:(u1-u0)/sc,h:(v1-v0)/sc,theta:Math.atan2(uy,ux)}}
+  }
+  return res;
+}
+/* ---- parsing Olivraison labels ---- */
+function parse(t){
+  const norm=t.replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  const lines=norm.split(/\n/).map(l=>l.trim()).filter(Boolean);
+  const o={};
+  // tracking
+  let m=norm.match(/#\s*(S[A-Z]{2}[A-Z0-9]{9,})/i)||norm.match(/(SA[LD][A-Z0-9]{9,})/i);
+  if(m)o.num=m[1].toUpperCase();
+  // price
+  m=norm.match(/(\d{1,6}[.,]\d{2})\s*D\s*H/i);
+  if(m)o.price=m[1].replace(',','.').replace(/\.00$/,'');
+  // destinataire block
+  const di=lines.findIndex(l=>/destinat/i.test(l));
+  const ei=lines.findIndex(l=>/exp[ée]d/i.test(l));
+  const telIdx=[];
+  lines.forEach((l,i)=>{if(/T[eéè]l/i.test(l))telIdx.push(i)});
+  const clean=l=>l.replace(/[^A-Za-zÀ-ÿ0-9.'\- ]/g,' ').replace(/\s+/g,' ').trim();
+  const okLine=l=>{const c=clean(l);return c.replace(/[^A-Za-zÀ-ÿ]/g,'').length>=3&&!/hub|crbt|nature|produit|exp[ée]d|date|espe|essayage|destinat|olivraison|t[eéè]l\b|\bd\s?h\b/i.test(c)};
+  let tl=-1;
+  for(const i of telIdx){if(di>=0&&i>di&&(ei<0?i-di<=4:i<ei)){tl=i;break}}
+  if(tl<0&&di<0&&telIdx.length)tl=telIdx[0];
+  if(tl>=0){
+    const tm=lines[tl].match(/T[eéè]l\s*[:.]?\s*([0-9OoDdeEGlIiSsBZz+][0-9OoDdeEGlIiSsBZz\s.+\-]{7,})/);
+    if(tm){let d=tm[1].replace(/[OoDd]/g,'0').replace(/[lIi]/g,'1').replace(/[Ss]/g,'5').replace(/B/g,'8').replace(/[eEG]/g,'6').replace(/[Zz]/g,'2').replace(/\D/g,'');
+      if(d.startsWith('212'))d='0'+d.slice(3);
+      if(d.length>10&&d[0]==='0')d=d.slice(0,10);
+      o.tel=d}
+  }
+  if(di>=0){
+    const end=tl>=0?tl:Math.min(lines.length,di+5);
+    const cand=lines.slice(di,end+1).filter(okLine).map(l=>clean(l).replace(/\bHUB\b.*/i,'').trim()).filter(Boolean);
+    const ci=cand.findIndex(l=>/^(client|oient|cllent|clent)\b/i.test(l));
+    if(ci>=0){o.name=cand[ci].replace(/^(client|oient|cllent|clent)[.:\s]*/i,'').trim();const z=cand.filter((_,k)=>k!==ci)[0];if(z)o.zone=z}
+    else{if(cand[0])o.name=cand[0];if(cand[1])o.zone=cand[1]}
+  }
+  for(const k of ['name','zone'])if(o[k]){let p=o[k].split(' ');while(p.length>1&&p[p.length-1].replace(/[^A-Za-zÀ-ÿ]/g,'').length<=2)p.pop();o[k]=p.join(' ')}
+  return o;
+}
+function scoreOcr(t){return [/destinat/i,/olivraison/i,/crbt/i,/exp[ée]d/i,/t[eéè]l/i,/#\s*SA/i,/\d\s*D\s*H/i].filter(r=>r.test(t)).length}
+
+function loadImg(file){return new Promise((res,rej)=>{const i=new Image(),u=URL.createObjectURL(file);i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=rej;i.src=u})}
+function labelCanvas(img){
+  const k=Math.min(1,1600/Math.max(img.width,img.height)),W=Math.round(img.width*k),H=Math.round(img.height*k);
+  const src=document.createElement('canvas');src.width=W;src.height=H;const sx=src.getContext('2d',{willReadFrequently:true});
+  sx.drawImage(img,0,0,W,H);
+  let r=null;try{r=findLabelRect(sx.getImageData(0,0,W,H).data,W,H)}catch(e){}
+  let out;
+  if(r){const s=Math.max(1,1600/Math.max(r.w,r.h));out=document.createElement('canvas');out.width=Math.round(r.w*s);out.height=Math.round(r.h*s);
+    const o=out.getContext('2d');o.fillStyle='#fff';o.fillRect(0,0,out.width,out.height);
+    o.translate(out.width/2,out.height/2);o.rotate(-r.theta);o.scale(s,s);o.drawImage(src,-r.cx,-r.cy)}
+  else{out=src}
+  const g=out.getContext('2d',{willReadFrequently:true}),d=g.getImageData(0,0,out.width,out.height),p=d.data;
+  for(let i=0;i<p.length;i+=4){const y=(p[i]*0.299+p[i+1]*0.587+p[i+2]*0.114)|0;p[i]=p[i+1]=p[i+2]=y}
+  g.putImageData(d,0,0);return out;
+}
+function rotCanvas(c,deg){
+  const o=document.createElement('canvas'),sw=deg===90||deg===270;
+  o.width=sw?c.height:c.width;o.height=sw?c.width:c.height;
+  const x=o.getContext('2d');x.translate(o.width/2,o.height/2);x.rotate(deg*Math.PI/180);x.drawImage(c,-c.width/2,-c.height/2);return o;
+}
+const setS=t=>$('ocrs').textContent=t;
+function checkTel(){const v=$('f_tel').value.replace(/\D/g,'');$('f_tel').classList.toggle('bad',!!v&&!/^0[5-7]\d{8}$/.test(v))}
+$('f_tel').oninput=checkTel;
+$('addCam').onclick=()=>$('file').click();
+$('file').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  openForm(null);setS('⏳ Kan9ass l\'étiquette...');
+  try{
+    const img=await loadImg(f),base=labelCanvas(img);
+    $('prev').src=base.toDataURL('image/jpeg',.7);$('prev').style.display='block';
+    if(!worker){setS('⏳ Kan7mmel l\'OCR (awel mra khass internet, chwiya)...');
+      worker=await Tesseract.createWorker('fra',1,{logger:m=>{if(m.status==='recognizing text')setS('⏳ Kanqra... '+Math.round(m.progress*100)+'%')}});
+      await worker.setParameters({tessedit_pageseg_mode:'6'})}
+    let best=null;
+    for(const deg of [0,90,270,180]){
+      const cv=deg?rotCanvas(base,deg):base;
+      setS('⏳ Kanqra...');
+      const {data:{text}}=await worker.recognize(cv);
+      const sc=scoreOcr(text);if(!best||sc>best.sc)best={sc,text,cv};
+      if(sc>=3)break;
+    }
+    const r=parse(best.text);
+    try{if('BarcodeDetector' in window){const codes=await new BarcodeDetector().detect(best.cv);
+      for(const c of codes){const m=String(c.rawValue).match(/SA[LD][A-Z0-9]{8,}/i);if(m){r.num=m[0].toUpperCase();break}}}}catch(_){}
+    if(r.num)$('f_num').value=r.num;if(r.name)$('f_name').value=r.name;if(r.tel)$('f_tel').value=r.tel;
+    if(r.price!==undefined)$('f_price').value=r.price;if(r.zone)$('f_zone').value=r.zone;
+    checkTel();
+    $('raw').style.display='block';$('raw').textContent=best.text;
+    const miss=[!r.num&&'numéro',!r.name&&'smiya',!r.tel&&'tel',r.price===undefined&&'taman',!r.zone&&'zone'].filter(Boolean);
+    setS(miss.length?'⚠️ Ma l9ithach: '+miss.join(', ')+'. Kmmel b yddk w tchecki l baqi.':'✅ Tchecki les infos m3a tswira 9bel ma tsajjel');
+  }catch(err){setS('⚠️ OCR ma khdemch (internet?). Kteb les infos b yddk.')}
+};
+
+$('csv').onclick=async()=>{
+  const csv=['Numero;Nom;Tel;Prix;Zone;Statut;Date report;Note',...items.map(i=>[i.num,i.name,i.tel,i.price,i.zone,LBL[i.status],i.date||'',i.note||''].join(';'))].join('\n');
+  try{await navigator.clipboard.writeText(csv);alert('Tkopya! Lssaqha f Excel wla WhatsApp.')}catch(e){prompt('Copier:',csv)}
+};
+$('clear').onclick=()=>{if(confirm('Tmseh koll les colis (bach tbda nhar jdid)?')&&confirm('Mt2akked?')){items=[];save();render()}};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+render();
+</script>
+</body>
+</html>
