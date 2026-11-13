@@ -56,7 +56,7 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
   <div class="stats" id="stats"></div>
 </header>
 <div class="bar">
-  <input id="q" type="search" placeholder="Bhath: smiya, numéro, tel...">
+  <input id="q" type="search" placeholder="Bhath: numéro, tel, ville...">
   <select id="zf"></select>
 </div>
 <div id="list"></div>
@@ -76,10 +76,9 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
   <img id="prev" class="prev" alt="" style="display:none">
   <div class="status" id="ocrs"></div>
   <label>Numéro (tracking)</label><input id="f_num" autocomplete="off">
-  <label>Smiya dyal client</label><input id="f_name" autocomplete="off">
   <label>Téléphone</label><input id="f_tel" type="tel" inputmode="tel" autocomplete="off">
   <label>Taman (DH)</label><input id="f_price" inputmode="decimal" autocomplete="off">
-  <label>Zone / Ville</label><input id="f_zone" list="zones" autocomplete="off">
+  <label>Ville (Medina)</label><input id="f_zone" list="zones" autocomplete="off">
   <datalist id="zones"></datalist>
   <button class="go" id="save">Sajjel ✔</button>
   <button class="cancel" id="cancel">Elgha</button>
@@ -109,19 +108,19 @@ $('today').textContent=new Date().toLocaleDateString('fr-FR');
 function render(){
   const zs=[...new Set(items.map(i=>i.zone).filter(Boolean))].sort();
   const zv=$('zf').value;
-  $('zf').innerHTML='<option value="">Koll zones</option>'+zs.map(z=>`<option ${z===zv?'selected':''}>${esc(z)}</option>`).join('');
+  $('zf').innerHTML='<option value="">Koll mdon</option>'+zs.map(z=>`<option ${z===zv?'selected':''}>${esc(z)}</option>`).join('');
   $('zones').innerHTML=zs.map(z=>`<option value="${esc(z)}">`).join('');
   const c=k=>items.filter(i=>i.status===k).length;
   const defs=[['all','Koll',items.length],['attente','Attente',c('attente')],['confirme','Confirmé',c('confirme')],['reporte','Reporté',c('reporte')],['annule','Annulé',c('annule')]];
   $('stats').innerHTML=defs.map(([k,l,n])=>`<button class="chip ${filter===k?'on':''}" data-f="${k}">${l} ${n}</button>`).join('')
     +`<span class="chip">💰 ${items.filter(i=>i.status==='confirme').reduce((s,i)=>s+(parseFloat(i.price)||0),0)} DH</span>`;
   const q=$('q').value.trim().toLowerCase(),z=$('zf').value;
-  const list=items.filter(i=>(filter==='all'||i.status===filter)&&(!z||i.zone===z)&&(!q||[i.num,i.name,i.tel,i.zone].join(' ').toLowerCase().includes(q)));
+  const list=items.filter(i=>(filter==='all'||i.status===filter)&&(!z||i.zone===z)&&(!q||[i.num,i.tel,i.zone].join(' ').toLowerCase().includes(q)));
   $('list').innerHTML=list.length?list.map(i=>`
   <div class="card ${i.status}" data-id="${i.id}">
-    <div class="row"><div><div class="name">${esc(i.name)||'(bla smiya)'}</div>
+    <div class="row"><div><div class="name">${esc(i.tel)||'(bla tel)'}</div>
       <div class="meta">${i.zone?`<span class="tag">📍 ${esc(i.zone)}</span>`:''}<span class="tag">${LBL[i.status]}${i.status==='reporte'&&i.date?' · '+esc(i.date):''}</span></div>
-      <div class="meta">#${esc(i.num)||'—'} · ${esc(i.tel)||'bla tel'}</div>
+      <div class="meta">#${esc(i.num)||'—'}</div>
       ${i.note?`<div class="meta">📝 ${esc(i.note)}</div>`:''}</div>
       <div class="price">${esc(i.price)||'0'} DH</div></div>
     ${i.tel?`<a class="call" href="tel:${esc(i.tel)}">📞 3ayet</a>`:''}
@@ -152,7 +151,7 @@ $('dcancel').onclick=()=>$('dmodal').classList.remove('show');
 function openForm(it,preview,raw){
   editId=it?it.id:null;
   $('mt').textContent=it?'Ta3dil colis':'Colis jdid';
-  $('f_num').value=it?.num||'';$('f_name').value=it?.name||'';$('f_tel').value=it?.tel||'';$('f_price').value=it?.price||'';$('f_zone').value=it?.zone||'';
+  $('f_num').value=it?.num||'';$('f_tel').value=it?.tel||'';$('f_price').value=it?.price||'';$('f_zone').value=it?.zone||'';
   $('prev').style.display=preview?'block':'none';if(preview)$('prev').src=preview;
   $('raw').style.display=raw?'block':'none';$('raw').textContent=raw||'';
   $('ocrs').textContent='';$('modal').classList.add('show');
@@ -160,8 +159,8 @@ function openForm(it,preview,raw){
 $('cancel').onclick=()=>$('modal').classList.remove('show');
 $('addMan').onclick=()=>openForm(null);
 $('save').onclick=()=>{
-  const d={num:$('f_num').value.trim(),name:$('f_name').value.trim(),tel:$('f_tel').value.replace(/[^\d+]/g,''),price:$('f_price').value.trim(),zone:$('f_zone').value.trim()};
-  if(!d.num&&!d.name&&!d.tel){alert('Zid 3la l9all numéro wla smiya wla tel');return}
+  const d={num:$('f_num').value.trim(),tel:$('f_tel').value.replace(/[^\d+]/g,''),price:$('f_price').value.trim(),zone:$('f_zone').value.trim()};
+  if(!d.num&&!d.tel){alert('Zid 3la l9all numéro wla tel');return}
   if(editId)Object.assign(items.find(i=>i.id===editId),d);
   else items.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),status:'attente',...d});
   save();$('modal').classList.remove('show');render();
@@ -236,12 +235,27 @@ function parse(t){
       if(d.length>10&&d[0]==='0')d=d.slice(0,10);
       o.tel=d}
   }
+  const CITIES=['sale','sala','rabat','temara','casablanca','casa','kenitra','tanger','tetouan','marrakech','fes','meknes','agadir','oujda','mohammedia','bouznika','skhirat','khemisset','larache','nador','eljadida','settat','berrechid','safi','taza','khouribga','tabriquet','bouknadel','harhoura','sidiyahya','ainaouda','souissi'];
+  const fold=x=>x.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const lev1=(a,b)=>{if(a===b)return true;if(Math.abs(a.length-b.length)>1)return false;let i=0;while(i<a.length&&i<b.length&&a[i]===b[i])i++;
+    if(a.length===b.length)return a.slice(i+1)===b.slice(i+1);
+    const [l,sh]=a.length>b.length?[a,b]:[b,a];return l.slice(i+1)===sh.slice(i)};
+  if(di>=0){
+    const lo=Math.max(0,di-1),hi=tl>=0?tl:Math.min(lines.length-1,di+5);
+    for(const l0 of lines.slice(lo,hi+1)){
+      if(/#|SA[LD][A-Z0-9]{8}/i.test(l0))continue;
+      const l=clean(l0).replace(/destinat\w*/i,'').replace(/\bHUB\b.*/i,'').trim();if(!l)continue;
+      const toks=fold(l).split(' ').filter(Boolean);
+      const hit=toks.some(t=>CITIES.some(c=>t===c||(t.length>=4&&c.length>=4&&lev1(t,c))));
+      if(hit){const city=l.replace(/^[^A-Za-zÀ-ÿ]+/,'');o.zone=city.split(' ').filter((t,k,a)=>k<4).join(' ');break}
+    }
+  }
   if(di>=0){
     const end=tl>=0?tl:Math.min(lines.length,di+5);
     const cand=lines.slice(di,end+1).filter(okLine).map(l=>clean(l).replace(/\bHUB\b.*/i,'').trim()).filter(Boolean);
     const ci=cand.findIndex(l=>/^(client|oient|cllent|clent)\b/i.test(l));
-    if(ci>=0){o.name=cand[ci].replace(/^(client|oient|cllent|clent)[.:\s]*/i,'').trim();const z=cand.filter((_,k)=>k!==ci)[0];if(z)o.zone=z}
-    else{if(cand[0])o.name=cand[0];if(cand[1])o.zone=cand[1]}
+    if(ci>=0){o.name=cand[ci].replace(/^(client|oient|cllent|clent)[.:\s]*/i,'').trim();const z=cand.filter((_,k)=>k!==ci)[0];if(z&&!o.zone)o.zone=z}
+    else{if(cand[0])o.name=cand[0]}
   }
   for(const k of ['name','zone'])if(o[k]){let p=o[k].split(' ');while(p.length>1&&p[p.length-1].replace(/[^A-Za-zÀ-ÿ]/g,'').length<=2)p.pop();o[k]=p.join(' ')}
   return o;
@@ -310,17 +324,17 @@ $('file').onchange=async e=>{
     }
     const r=parse(best.text);
     if(qrNum)r.num=qrNum;
-    if(r.num)$('f_num').value=r.num;if(r.name)$('f_name').value=r.name;if(r.tel)$('f_tel').value=r.tel;
+    if(r.num)$('f_num').value=r.num;if(r.tel)$('f_tel').value=r.tel;
     if(r.price!==undefined)$('f_price').value=r.price;if(r.zone)$('f_zone').value=r.zone;
     checkTel();
     $('raw').style.display='block';$('raw').textContent=best.text;
-    const miss=[!r.num&&'numéro',!r.name&&'smiya',!r.tel&&'tel',r.price===undefined&&'taman',!r.zone&&'zone'].filter(Boolean);
+    const miss=[!r.num&&'numéro',!r.tel&&'tel',r.price===undefined&&'taman',!r.zone&&'zone'].filter(Boolean);
     setS(miss.length?'⚠️ Ma l9ithach: '+miss.join(', ')+'. Kmmel b yddk w tchecki l baqi.':'✅ Tchecki les infos m3a tswira 9bel ma tsajjel');
   }catch(err){setS('⚠️ OCR ma khdemch (internet?). Kteb les infos b yddk.')}
 };
 
 $('csv').onclick=async()=>{
-  const csv=['Numero;Nom;Tel;Prix;Zone;Statut;Date report;Note',...items.map(i=>[i.num,i.name,i.tel,i.price,i.zone,LBL[i.status],i.date||'',i.note||''].join(';'))].join('\n');
+  const csv=['Numero;Tel;Prix;Ville;Statut;Date report;Note',...items.map(i=>[i.num,i.tel,i.price,i.zone,LBL[i.status],i.date||'',i.note||''].join(';'))].join('\n');
   try{await navigator.clipboard.writeText(csv);alert('Tkopya! Lssaqha f Excel wla WhatsApp.')}catch(e){prompt('Copier:',csv)}
 };
 $('clear').onclick=()=>{if(confirm('Tmseh koll les colis (bach tbda nhar jdid)?')&&confirm('Mt2akked?')){items=[];save();render()}};
