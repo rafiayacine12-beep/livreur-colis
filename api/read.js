@@ -3,12 +3,12 @@
 //   ANTHROPIC_API_KEY  (required)
 //   APP_PASSWORD       (optional, recommended: the app asks for it once)
 //   ANTHROPIC_MODEL    (optional, default claude-sonnet-5-5)
-const PROMPT = `Hadi tswira dyal étiquette dyal colis (Olivraison, Maroc). Extract these 4 fields and answer with JSON ONLY, no other text:
+const PROMPT = `Hadi tswira dyal étiquette dyal colis (Olivraison, Maroc). Copy these 4 fields EXACTLY as they are printed on the label, character by character: same digits, same letters, same capitals, same decimals. Do not fix, reformat, round, translate or normalise anything. Answer with JSON ONLY, no other text:
 {"num":"","tel":"","prix":"","ville":"","doubt":[]}
-- num: tracking number printed after "#", starts with SAL (example SAL6964188DEF3A011262). Copy it exactly, same letters and digits. If a QR/barcode is the only source, leave empty.
-- tel: phone number of the DESTINATAIRE only (the "Tél:" line inside the Destinataire block). NOT the Expéditeur phone, NOT +212.520.015.583. Format: 10 digits starting with 0.
-- prix: the amount to collect in the dark CRBT box, number only in DH (example 1280). If it says 0.00 DH put 0.
-- ville: the city written in the small framed box next to the Date, left of the HUB box (example SALE). Not the Expéditeur city.
+- num: tracking number printed after "#", starts with SAL (example SAL6964188DEF3A011262). Copy it exactly (without the # sign), same letters and digits. If a QR/barcode is the only source, leave empty.
+- tel: phone number of the DESTINATAIRE only (the "Tél:" line inside the Destinataire block). NOT the Expéditeur phone, NOT +212.520.015.583. Copy the digits exactly as printed.
+- prix: the amount to collect in the dark CRBT box, copy the number exactly as printed, without the DH unit (example 1280.00; if it prints 0.00 DH put 0.00).
+- ville: the city written in the small framed box next to the Date, left of the HUB box exactly as printed (example SALE). Not the Expéditeur city.
 Read each field twice before answering. Use "" for anything you cannot read with confidence. Never guess digits. In "doubt" list the field names (num, tel, prix, ville) that are blurry, partly hidden by tape, pen marks or glare, or that you are not fully sure about.`;
 
 module.exports = async (req, res) => {
@@ -41,10 +41,13 @@ module.exports = async (req, res) => {
     const mm = text.match(/\{[\s\S]*\}/);
     if (!mm) return res.status(502).json({ error: 'no_json' });
     const o = JSON.parse(mm[0]);
-    const tel = String(o.tel || '').replace(/\D/g, '').replace(/^212/, '0');
-    const num = String(o.num || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const prix = String(o.prix == null ? '' : o.prix).replace(/[^\d.,]/g, '').replace(',', '.').replace(/\.0+$/, '');
-    return res.status(200).json({ num: /^SA[LD][A-Z0-9]{8,}$/.test(num) ? num : '', tel: /^0[5-7]\d{8}$/.test(tel) ? tel : '', prix, ville: String(o.ville || '').trim(), doubt: Array.isArray(o.doubt) ? o.doubt.filter(x => ['num','tel','prix','ville'].includes(x)) : [] });
+    const tel = String(o.tel || '').trim();
+    const num = String(o.num || '').replace(/[#\s]/g, '');
+    const prix = String(o.prix == null ? '' : o.prix).replace(/dh|mad|\s/gi, '');
+    const doubt = Array.isArray(o.doubt) ? o.doubt.filter(x => ['num','tel','prix','ville'].includes(x)) : [];
+    if (tel && !/^0[5-7]\d{8}$/.test(tel.replace(/\D/g, ''))) doubt.push('tel');
+    if (num && !/^SA[LD][A-Z0-9]{8,}$/i.test(num)) doubt.push('num');
+    return res.status(200).json({ num, tel, prix, ville: String(o.ville || '').trim(), doubt: [...new Set(doubt)] });
   } catch (e) {
     return res.status(502).json({ error: 'failed' });
   }

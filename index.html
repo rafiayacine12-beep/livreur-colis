@@ -130,7 +130,7 @@ function render(){
       <div class="meta">#${esc(i.num)||'—'}</div>
       ${i.note?`<div class="meta">📝 ${esc(i.note)}</div>`:''}</div>
       <div class="price">${esc(i.price)||'0'} DH</div></div>
-    ${i.tel?`<a class="call" href="tel:${esc(i.tel)}">📞 3ayet</a>`:''}
+    ${i.tel?`<a class="call" href="tel:${esc(i.tel.replace(/[^\d+]/g,''))}">📞 3ayet</a>`:''}
     <div class="btns">
       <button class="b-ok ${i.status==='confirme'?'sel':''}" data-a="confirme">✔ Confirmé</button>
       <button class="b-pr ${i.status==='reporte'?'sel':''}" data-a="reporte">⏳ Reporté</button>
@@ -168,7 +168,7 @@ $('zchips').onclick=e=>{const z=e.target.dataset.z;if(z)$('f_zone').value=z};
 $('cancel').onclick=()=>{$('modal').classList.remove('show');nextInQueue()};
 $('addMan').onclick=()=>openForm(null);
 $('save').onclick=()=>{
-  const d={num:$('f_num').value.trim(),tel:$('f_tel').value.replace(/[^\d+]/g,''),price:$('f_price').value.trim(),zone:$('f_zone').value.trim()};
+  const d={num:$('f_num').value.trim(),tel:$('f_tel').value.trim(),price:$('f_price').value.trim(),zone:$('f_zone').value.trim()};
   if(!d.num&&!d.tel){alert('Zid 3la l9all numéro wla tel');return}
   if(editId)Object.assign(items.find(i=>i.id===editId),d);
   else items.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),status:'attente',...d});
@@ -226,7 +226,7 @@ function parse(t){
   if(m)o.num=m[1].toUpperCase();
   // price
   m=norm.match(/(\d{1,6}[.,]\d{2})\s*D\s*H/i);
-  if(m)o.price=m[1].replace(',','.').replace(/\.00$/,'');
+  if(m)o.price=m[1].replace(',','.');
   // destinataire block
   const di=lines.findIndex(l=>/destinat/i.test(l));
   const ei=lines.findIndex(l=>/exp[ée]d/i.test(l));
@@ -256,7 +256,7 @@ function parse(t){
       const l=clean(l0).replace(/\bdate\b[:\s]*[\d\-\/.]*/i,'').replace(/destinat\w*/i,'').replace(/\bHUB\b.*/i,'').trim();if(!l)continue;
       const toks=fold(l).split(' ').filter(Boolean);
       const hit=toks.some(t=>CITIES.some(c=>t===c||(t.length>=4&&c.length>=4&&lev1(t,c))));
-      if(hit){const city=l.replace(/^[^A-Za-zÀ-ÿ]+/,'');o.zone=city.split(' ').slice(0,4).join(' ').toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());break}
+      if(hit){const city=l.replace(/^[^A-Za-zÀ-ÿ]+/,'');o.zone=city.split(' ').slice(0,4).join(' ');break}
     }
   }
   if(di>=0){
