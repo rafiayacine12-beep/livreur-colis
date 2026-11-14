@@ -43,6 +43,7 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
 .sheet .cancel{width:100%;margin-top:8px;background:#e2e8f0;border:0;border-radius:12px;padding:12px;font-size:15px}
 .prev{width:100%;max-height:160px;object-fit:contain;border-radius:10px;background:#f1f5f9}
 .sheet input.bad{border-color:#dc2626;background:#fef2f2}
+.zc{display:inline-block;background:#e2e8f0;border:0;border-radius:999px;padding:7px 12px;margin:0 6px 6px 0;font-size:14px}
 .status{font-size:13px;color:#0f766e;margin:8px 0;min-height:18px}
 .raw{font-size:12px;color:#64748b;white-space:pre-wrap;background:#f8fafc;border-radius:8px;padding:8px;max-height:90px;overflow:auto;margin-top:8px}
 .empty{text-align:center;color:#64748b;padding:50px 20px}
@@ -81,6 +82,7 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
   <label>Téléphone</label><input id="f_tel" type="tel" inputmode="tel" autocomplete="off">
   <label>Taman (DH)</label><input id="f_price" inputmode="decimal" autocomplete="off">
   <label>Ville (Medina)</label><input id="f_zone" list="zones" autocomplete="off">
+  <div id="zchips" style="margin-top:6px"></div>
   <datalist id="zones"></datalist>
   <button class="go" id="save">Sajjel ✔</button>
   <button class="cancel" id="cancel">Elgha</button>
@@ -111,6 +113,8 @@ function render(){
   const zs=[...new Set(items.map(i=>i.zone).filter(Boolean))].sort();
   const zv=$('zf').value;
   $('zf').innerHTML='<option value="">Koll mdon</option>'+zs.map(z=>`<option ${z===zv?'selected':''}>${esc(z)}</option>`).join('');
+  const cnt={};items.forEach(i=>{if(i.zone)cnt[i.zone]=(cnt[i.zone]||0)+1});
+  window.topZones=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,5);
   $('zones').innerHTML=zs.map(z=>`<option value="${esc(z)}">`).join('');
   const c=k=>items.filter(i=>i.status===k).length;
   const defs=[['all','Koll',items.length],['attente','Attente',c('attente')],['confirme','Confirmé',c('confirme')],['reporte','Reporté',c('reporte')],['annule','Annulé',c('annule')]];
@@ -156,8 +160,10 @@ function openForm(it,preview,raw){
   $('f_num').value=it?.num||'';$('f_tel').value=it?.tel||'';$('f_price').value=it?.price||'';$('f_zone').value=it?.zone||'';
   $('prev').style.display=preview?'block':'none';if(preview)$('prev').src=preview;
   $('raw').style.display=raw?'block':'none';$('raw').textContent=raw||'';
-  $('ocrs').textContent='';$('modal').classList.add('show');
+  $('ocrs').textContent='';$('modal').classList.add('show');drawChips();
 }
+function drawChips(){$('zchips').innerHTML=(window.topZones||[]).map(z=>`<button type="button" class="zc" data-z="${esc(z)}">${esc(z)}</button>`).join('')}
+$('zchips').onclick=e=>{const z=e.target.dataset.z;if(z)$('f_zone').value=z};
 $('cancel').onclick=()=>{$('modal').classList.remove('show');nextInQueue()};
 $('addMan').onclick=()=>openForm(null);
 $('save').onclick=()=>{
@@ -242,14 +248,14 @@ function parse(t){
   const lev1=(a,b)=>{if(a===b)return true;if(Math.abs(a.length-b.length)>1)return false;let i=0;while(i<a.length&&i<b.length&&a[i]===b[i])i++;
     if(a.length===b.length)return a.slice(i+1)===b.slice(i+1);
     const [l,sh]=a.length>b.length?[a,b]:[b,a];return l.slice(i+1)===sh.slice(i)};
-  if(di>=0){
-    const lo=Math.max(0,di-1),hi=tl>=0?tl:Math.min(lines.length-1,di+5);
+  {
+    const lo=0,hi=Math.min(lines.length-1,tl>=0?tl:1e9,ei>=0?ei-1:1e9);
     for(const l0 of lines.slice(lo,hi+1)){
       if(/#|SA[LD][A-Z0-9]{8}/i.test(l0))continue;
-      const l=clean(l0).replace(/destinat\w*/i,'').replace(/\bHUB\b.*/i,'').trim();if(!l)continue;
+      const l=clean(l0).replace(/\bdate\b[:\s]*[\d\-\/.]*/i,'').replace(/destinat\w*/i,'').replace(/\bHUB\b.*/i,'').trim();if(!l)continue;
       const toks=fold(l).split(' ').filter(Boolean);
       const hit=toks.some(t=>CITIES.some(c=>t===c||(t.length>=4&&c.length>=4&&lev1(t,c))));
-      if(hit){const city=l.replace(/^[^A-Za-zÀ-ÿ]+/,'');o.zone=city.split(' ').filter((t,k,a)=>k<4).join(' ');break}
+      if(hit){const city=l.replace(/^[^A-Za-zÀ-ÿ]+/,'');o.zone=city.split(' ').slice(0,4).join(' ').toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());break}
     }
   }
   if(di>=0){
@@ -329,6 +335,9 @@ async function processFile(f){
       if(sc>=3)break;
     }
     const r=parse(best.text);
+    if(!r.zone){try{setS('⏳ Kanqra l ville...');await worker.setParameters({tessedit_pageseg_mode:'3'});
+      const t3=(await worker.recognize(best.cv)).data.text;const z=parse(t3).zone;if(z)r.zone=z;
+      await worker.setParameters({tessedit_pageseg_mode:'6'})}catch(_){try{await worker.setParameters({tessedit_pageseg_mode:'6'})}catch(__){}}}
     if(qrNum)r.num=qrNum;
     if(r.num)$('f_num').value=r.num;if(r.tel)$('f_tel').value=r.tel;
     if(r.price!==undefined)$('f_price').value=r.price;if(r.zone)$('f_zone').value=r.zone;
