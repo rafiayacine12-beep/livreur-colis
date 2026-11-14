@@ -41,6 +41,7 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
 .sheet input,.sheet select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px}
 .sheet .go{width:100%;margin-top:14px;background:#0f766e;color:#fff;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:700}
 .sheet .cancel{width:100%;margin-top:8px;background:#e2e8f0;border:0;border-radius:12px;padding:12px;font-size:15px}
+.prev.big{max-height:none!important}
 .prev{width:100%;max-height:160px;object-fit:contain;border-radius:10px;background:#f1f5f9}
 .sheet input.warn{border-color:#f59e0b;background:#fffbeb}
 .sheet input.bad{border-color:#dc2626;background:#fef2f2}
@@ -81,7 +82,9 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
   <div class="status" id="ocrs"></div>
   <label>Numéro (tracking)</label><input id="f_num" autocomplete="off">
   <label>Téléphone</label><input id="f_tel" type="tel" inputmode="tel" autocomplete="off">
-  <label>Taman (DH)</label><input id="f_price" inputmode="decimal" autocomplete="off">
+  <label>Taman (DH) — darouri</label><input id="f_price" inputmode="decimal" autocomplete="off">
+  <img id="pcrop" class="prev" alt="" style="display:none;max-height:90px;margin-top:6px">
+  <label id="pchkrow" style="display:none;color:#b45309;font-weight:600"><input type="checkbox" id="f_pchk" style="width:auto;margin-right:8px">Tcheckit taman m3a tswira</label>
   <label>Ville (Medina)</label><input id="f_zone" list="zones" autocomplete="off">
   <div id="zchips" style="margin-top:6px"></div>
   <datalist id="zones"></datalist>
@@ -103,7 +106,7 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
 <script>
 const KEY='livreur_colis_v1';
 let items=[];try{items=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){}
-let filter='all',editId=null,pendingPR=null,worker=null;
+let priceUnver=false,filter='all',editId=null,pendingPR=null,worker=null;
 const $=id=>document.getElementById(id);
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -161,7 +164,7 @@ function openForm(it,preview,raw){
   $('f_num').value=it?.num||'';$('f_tel').value=it?.tel||'';$('f_price').value=it?.price||'';$('f_zone').value=it?.zone||'';
   $('prev').style.display=preview?'block':'none';if(preview)$('prev').src=preview;
   $('raw').style.display=raw?'block':'none';$('raw').textContent=raw||'';
-  $('ocrs').textContent='';['num','tel','price','zone'].forEach(k=>$('f_'+k).classList.remove('warn'));$('modal').classList.add('show');drawChips();
+  $('pcrop').style.display='none';$('pchkrow').style.display='none';priceUnver=false;$('ocrs').textContent='';['num','tel','price','zone'].forEach(k=>$('f_'+k).classList.remove('warn'));$('modal').classList.add('show');drawChips();
 }
 function drawChips(){$('zchips').innerHTML=(window.topZones||[]).map(z=>`<button type="button" class="zc" data-z="${esc(z)}">${esc(z)}</button>`).join('')}
 $('zchips').onclick=e=>{const z=e.target.dataset.z;if(z)$('f_zone').value=z};
@@ -170,6 +173,8 @@ $('addMan').onclick=()=>openForm(null);
 $('save').onclick=()=>{
   const d={num:$('f_num').value.trim(),tel:$('f_tel').value.trim(),price:$('f_price').value.trim(),zone:$('f_zone').value.trim()};
   if(!d.num&&!d.tel){alert('Zid 3la l9all numéro wla tel');return}
+  if(d.price===''){alert('Taman darouri. Chouf f tswira w kteb-o (mital 230.00).');return}
+  if(priceUnver&&!$('f_pchk').checked){alert('Chouf taman f tswira w dghat "Tcheckit taman" 9bel ma tsajjel.');return}
   if(editId)Object.assign(items.find(i=>i.id===editId),d);
   else items.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),status:'attente',...d});
   save();$('modal').classList.remove('show');render();nextInQueue();
@@ -349,6 +354,13 @@ async function priceRead(cv){
   return '';
 }
 const setS=t=>$('ocrs').textContent=t;
+function showPriceCrop(cv){try{const g=cv.getContext('2d',{willReadFrequently:true}).getImageData(0,0,cv.width,cv.height),b=findPriceBox(g.data,cv.width,cv.height);if(!b)return false;
+  const pad=Math.round(b.h*.12),c=document.createElement('canvas');c.width=Math.round(b.w+2*pad);c.height=Math.round(b.h+2*pad);
+  c.getContext('2d').drawImage(cv,b.x-pad,b.y-pad,c.width,c.height,0,0,c.width,c.height);$('pcrop').src=c.toDataURL('image/jpeg',.8);$('pcrop').style.display='block';return true}catch(e){return false}}
+function needPriceCheck(cv){priceUnver=true;$('pchkrow').style.display='block';$('f_pchk').checked=false;$('f_price').classList.add('warn');showPriceCrop(cv)}
+$('f_price').addEventListener('input',()=>{priceUnver=false;$('pchkrow').style.display='none';$('f_price').classList.remove('warn')});
+$('prev').onclick=()=>$('prev').classList.toggle('big');
+$('pcrop').onclick=()=>$('pcrop').classList.toggle('big');
 function checkTel(){const v=$('f_tel').value.replace(/\D/g,'');$('f_tel').classList.toggle('bad',!!v&&!/^0[5-7]\d{8}$/.test(v))}
 $('f_tel').oninput=checkTel;
 $('addCam').onclick=()=>$('file').click();
@@ -390,6 +402,7 @@ async function processFile(f){
       ['num','tel','price','zone'].forEach(k=>$('f_'+k).classList.remove('warn'));
       (ai.doubt||[]).forEach(k=>{const e=$('f_'+(k==='prix'?'price':k==='ville'?'zone':k));if(e)e.classList.add('warn')});
       if(qrNum&&ai.num&&qrNum!==ai.num)$('f_num').classList.add('warn');
+      needPriceCheck(base);
       const miss=[!num&&'numéro',!ai.tel&&'tel',ai.prix===''&&'taman',!ai.ville&&'ville'].filter(Boolean);
       const dbt=(ai.doubt||[]).length?' ⚠️ Khanat b l-bortoqali: AI mchkouk fihom.':'';
       setS((miss.length?'🤖 AI ma l9atch: '+miss.join(', ')+'. Kmmel b yddk.':'✅ AI qrat koulchi. Tchecki m3a tswira 9bel ma tsajjel')+dbt);
@@ -415,7 +428,7 @@ async function processFile(f){
     if(qrNum)r.num=qrNum;
     if(r.num)$('f_num').value=r.num;if(r.tel)$('f_tel').value=r.tel;
     if(r.price!==undefined)$('f_price').value=r.price;if(r.zone)$('f_zone').value=r.zone;
-    checkTel();
+    checkTel();needPriceCheck(best.cv);
     $('raw').style.display='block';$('raw').textContent=best.text;
     const miss=[!r.num&&'numéro',!r.tel&&'tel',r.price===undefined&&'taman',!r.zone&&'zone'].filter(Boolean);
     setS(miss.length?'⚠️ Ma l9ithach: '+miss.join(', ')+'. Kmmel b yddk w tchecki l baqi.':'✅ Tchecki les infos m3a tswira 9bel ma tsajjel');
