@@ -42,6 +42,7 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
 .sheet .go{width:100%;margin-top:14px;background:#0f766e;color:#fff;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:700}
 .sheet .cancel{width:100%;margin-top:8px;background:#e2e8f0;border:0;border-radius:12px;padding:12px;font-size:15px}
 .prev{width:100%;max-height:160px;object-fit:contain;border-radius:10px;background:#f1f5f9}
+.sheet input.warn{border-color:#f59e0b;background:#fffbeb}
 .sheet input.bad{border-color:#dc2626;background:#fef2f2}
 .zc{display:inline-block;background:#e2e8f0;border:0;border-radius:999px;padding:7px 12px;margin:0 6px 6px 0;font-size:14px}
 .status{font-size:13px;color:#0f766e;margin:8px 0;min-height:18px}
@@ -160,7 +161,7 @@ function openForm(it,preview,raw){
   $('f_num').value=it?.num||'';$('f_tel').value=it?.tel||'';$('f_price').value=it?.price||'';$('f_zone').value=it?.zone||'';
   $('prev').style.display=preview?'block':'none';if(preview)$('prev').src=preview;
   $('raw').style.display=raw?'block':'none';$('raw').textContent=raw||'';
-  $('ocrs').textContent='';$('modal').classList.add('show');drawChips();
+  $('ocrs').textContent='';['num','tel','price','zone'].forEach(k=>$('f_'+k).classList.remove('warn'));$('modal').classList.add('show');drawChips();
 }
 function drawChips(){$('zchips').innerHTML=(window.topZones||[]).map(z=>`<button type="button" class="zc" data-z="${esc(z)}">${esc(z)}</button>`).join('')}
 $('zchips').onclick=e=>{const z=e.target.dataset.z;if(z)$('f_zone').value=z};
@@ -345,8 +346,12 @@ async function processFile(f){
       const num=qrNum||ai.num;
       if(num)$('f_num').value=num;if(ai.tel)$('f_tel').value=ai.tel;if(ai.prix!=='')$('f_price').value=ai.prix;if(ai.ville)$('f_zone').value=ai.ville;
       checkTel();
+      ['num','tel','price','zone'].forEach(k=>$('f_'+k).classList.remove('warn'));
+      (ai.doubt||[]).forEach(k=>{const e=$('f_'+(k==='prix'?'price':k==='ville'?'zone':k));if(e)e.classList.add('warn')});
+      if(qrNum&&ai.num&&qrNum!==ai.num)$('f_num').classList.add('warn');
       const miss=[!num&&'numéro',!ai.tel&&'tel',ai.prix===''&&'taman',!ai.ville&&'ville'].filter(Boolean);
-      setS(miss.length?'🤖 AI ma l9atch: '+miss.join(', ')+'. Kmmel b yddk.':'✅ AI qrat koulchi. Tchecki m3a tswira 9bel ma tsajjel');
+      const dbt=(ai.doubt||[]).length?' ⚠️ Khanat b l-bortoqali: AI mchkouk fihom.':'';
+      setS((miss.length?'🤖 AI ma l9atch: '+miss.join(', ')+'. Kmmel b yddk.':'✅ AI qrat koulchi. Tchecki m3a tswira 9bel ma tsajjel')+dbt);
       return;
     }
     setS('⏳ AI ma khdmatch, kanjarreb l\'OCR...');
