@@ -225,7 +225,7 @@ function parse(t){
   let m=norm.match(/#\s*(S[A-Z]{2}[A-Z0-9]{9,})/i)||norm.match(/(SA[LD][A-Z0-9]{9,})/i);
   if(m)o.num=m[1].toUpperCase();
   // price
-  m=norm.match(/(\d{1,6}[.,]\d{2})\s*D\s*H/i);
+  m=norm.match(/(\d{1,6}[.,]\d{2})\s*D\s*H/i)||norm.match(/(?:^|[^\d.,])(\d{1,6}[.,]00)(?![\d])/m);
   if(m)o.price=m[1].replace(',','.');
   // destinataire block
   const di=lines.findIndex(l=>/destinat/i.test(l));
@@ -307,6 +307,47 @@ async function qrScan(sources){
   }
   return null;
 }
+function findPriceBox(data,w,h){
+  const sc=Math.min(1,320/Math.max(w,h)),gw=Math.max(1,Math.round(w*sc)),gh=Math.max(1,Math.round(h*sc));
+  const lum=new Float32Array(gw*gh),cnt=new Float32Array(gw*gh);
+  for(let y=0;y<h;y++){const gy=Math.min(gh-1,(y*sc)|0);for(let x=0;x<w;x++){const gx=Math.min(gw-1,(x*sc)|0);lum[gy*gw+gx]+=data[(y*w+x)*4];cnt[gy*gw+gx]++}}
+  const m=new Uint8Array(gw*gh);for(let i=0;i<m.length;i++)m[i]=cnt[i]&&lum[i]/cnt[i]<155?1:0;
+  const lab=new Int32Array(gw*gh);let best=null,id=0;
+  for(let s0=0;s0<gw*gh;s0++){if(!m[s0]||lab[s0])continue;id++;const st=[s0];lab[s0]=id;let n=0,x0=1e9,x1=-1,y0=1e9,y1=-1;
+    while(st.length){const p=st.pop();n++;const x=p%gw,y=(p/gw)|0;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+      for(const q of [p-1,p+1,p-gw,p+gw]){if(q<0||q>=gw*gh||lab[q]||!m[q])continue;if((q===p-1&&x===0)||(q===p+1&&x===gw-1))continue;lab[q]=id;st.push(q)}}
+    const bw=x1-x0+1,bh=y1-y0+1,ar=bw/bh,fill=n/(bw*bh),cx=(x0+x1)/2/gw,cy=(y0+y1)/2/gh,wr=bw/gw;
+    if(ar>1.5&&ar<4&&fill>0.6&&wr>0.15&&wr<0.5&&cx<0.65&&cy>0.3&&cy<0.8){const sco=fill*n;if(!best||sco>best.sco)best={sco,x:x0/sc,y:y0/sc,w:bw/sc,h:bh/sc}}}
+  return best;
+}
+function invCanvas(c,crop){
+  const sx=crop?crop.x:0,sy=crop?crop.y:0,sw=crop?crop.w:c.width,sh=crop?crop.h:c.height;
+  const k=crop?Math.max(1,220/sh):1,o=document.createElement('canvas');o.width=Math.round(sw*k);o.height=Math.round(sh*k);
+  const x=o.getContext('2d',{willReadFrequently:true});x.fillStyle='#fff';x.fillRect(0,0,o.width,o.height);x.drawImage(c,sx,sy,sw,sh,0,0,o.width,o.height);
+  const d=x.getImageData(0,0,o.width,o.height),p=d.data;for(let i=0;i<p.length;i+=4){p[i]=p[i+1]=p[i+2]=255-p[i]}
+  if(crop){const W=o.width,H=o.height,R=2,tmp=new Float32Array(W*H),L=new Float32Array(W*H);
+    for(let i=0;i<W*H;i++)L[i]=p[i*4];
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){let a=0,n=0;for(let k=-R;k<=R;k++){const xx=x+k;if(xx>=0&&xx<W){a+=L[y*W+xx];n++}}tmp[y*W+x]=a/n}
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){let a=0,n=0;for(let k=-R;k<=R;k++){const yy=y+k;if(yy>=0&&yy<H){a+=tmp[yy*W+x];n++}}const v=a/n;const q=(y*W+x)*4;p[q]=p[q+1]=p[q+2]=v}}
+  x.putImageData(d,0,0);return o;
+}
+async function priceRead(cv){
+  const pick=t=>{const m=t.match(/(\d{1,6}[.,]\d{2})\s*D\s*H|(\d{1,6}[.,]00)\b/);return m?(m[1]||m[2]).replace(',','.'):''};
+  const reset=()=>worker.setParameters({tessedit_char_whitelist:''});
+  try{
+    const g=cv.getContext('2d',{willReadFrequently:true}).getImageData(0,0,cv.width,cv.height);
+    const b=findPriceBox(g.data,cv.width,cv.height);
+    if(b){const pad=Math.round(b.h*0.12);
+      const crop=invCanvas(cv,{x:Math.max(0,b.x-pad),y:Math.max(0,b.y-pad),w:Math.min(cv.width,b.w+2*pad),h:Math.min(cv.height,b.h+2*pad)});
+      await worker.setParameters({tessedit_pageseg_mode:'6',tessedit_char_whitelist:'0123456789.,DH '});
+      const p=pick((await worker.recognize(crop)).data.text);await reset();if(p)return p}
+  }catch(_){try{await reset()}catch(__){}}
+  try{
+    for(const [psm,inv] of [['6',true],['11',false],['11',true]]){await worker.setParameters({tessedit_pageseg_mode:psm});const p=pick((await worker.recognize(inv?invCanvas(cv):cv)).data.text);if(p){await worker.setParameters({tessedit_pageseg_mode:'6'});return p}}
+    await worker.setParameters({tessedit_pageseg_mode:'6'});
+  }catch(_){try{await worker.setParameters({tessedit_pageseg_mode:'6'})}catch(__){}}
+  return '';
+}
 const setS=t=>$('ocrs').textContent=t;
 function checkTel(){const v=$('f_tel').value.replace(/\D/g,'');$('f_tel').classList.toggle('bad',!!v&&!/^0[5-7]\d{8}$/.test(v))}
 $('f_tel').oninput=checkTel;
@@ -370,6 +411,7 @@ async function processFile(f){
     if(!r.zone){try{setS('⏳ Kanqra l ville...');await worker.setParameters({tessedit_pageseg_mode:'3'});
       const t3=(await worker.recognize(best.cv)).data.text;const z=parse(t3).zone;if(z)r.zone=z;
       await worker.setParameters({tessedit_pageseg_mode:'6'})}catch(_){try{await worker.setParameters({tessedit_pageseg_mode:'6'})}catch(__){}}}
+    if(r.price===undefined){setS('⏳ Kanqra taman...');const pr=await priceRead(best.cv);if(pr)r.price=pr}
     if(qrNum)r.num=qrNum;
     if(r.num)$('f_num').value=r.num;if(r.tel)$('f_tel').value=r.tel;
     if(r.price!==undefined)$('f_price').value=r.price;if(r.zone)$('f_zone').value=r.zone;
