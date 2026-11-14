@@ -315,8 +315,8 @@ function nextInQueue(){const f=queue.shift();if(f)processFile(f)}
 function pick(e){queue=[...e.target.files];e.target.value='';nextInQueue()}
 $('file').onchange=pick;$('gfile').onchange=pick;
 $('addGal').onclick=()=>$('gfile').click();
-async function aiRead(base){
-  const body=JSON.stringify({image:base.toDataURL('image/jpeg',.85)});
+async function aiRead(orig){
+  const body=JSON.stringify({image:orig.toDataURL('image/jpeg',.9)});
   for(let n=0;n<2;n++){
     const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),30000);
     try{
@@ -336,10 +336,11 @@ async function processFile(f){
     const img=await loadImg(f),base=labelCanvas(img);
     $('prev').src=base.toDataURL('image/jpeg',.7);$('prev').style.display='block';
     setS('⏳ Kan9ra QR code...');
-    const qrNum=await qrScan([base,toCanvas(img,1800)]);
+    const origC=toCanvas(img,1800);
+    const qrNum=await qrScan([base,origC]);
     if(qrNum)$('f_num').value=qrNum;
     setS('🤖 AI kat9ra l\'étiquette...');
-    const ai=await aiRead(base);
+    const ai=await aiRead(origC);
     if(ai&&(ai.tel||ai.prix||ai.ville||ai.num)){
       const num=qrNum||ai.num;
       if(num)$('f_num').value=num;if(ai.tel)$('f_tel').value=ai.tel;if(ai.prix!=='')$('f_price').value=ai.prix;if(ai.ville)$('f_zone').value=ai.ville;

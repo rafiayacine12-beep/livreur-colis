@@ -2,7 +2,7 @@
 // Env vars (Vercel > Settings > Environment Variables):
 //   ANTHROPIC_API_KEY  (required)
 //   APP_PASSWORD       (optional, recommended: the app asks for it once)
-//   ANTHROPIC_MODEL    (optional, default claude-haiku-5-5)
+//   ANTHROPIC_MODEL    (optional, default claude-sonnet-5-5)
 const PROMPT = `Hadi tswira dyal étiquette dyal colis (Olivraison, Maroc). Extract these 4 fields and answer with JSON ONLY, no other text:
 {"num":"","tel":"","prix":"","ville":""}
 - num: tracking number printed after "#", starts with SAL (example SAL6964188DEF3A011262). Copy it exactly, same letters and digits. If a QR/barcode is the only source, leave empty.
@@ -27,8 +27,8 @@ module.exports = async (req, res) => {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
-        max_tokens: 200,
+        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5',
+        max_tokens: 300,
         messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } },
           { type: 'text', text: PROMPT }
