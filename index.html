@@ -30,8 +30,8 @@ header h1{margin:0;font-size:18px}
 .call{display:block;text-align:center;background:#0f766e;color:#fff;text-decoration:none;margin-top:8px}
 .small{display:flex;gap:14px;margin-top:8px;font-size:13px}
 .small button{background:none;border:0;color:#64748b;text-decoration:underline;padding:4px 0}
-.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:6}
-.fab button{border:0;border-radius:999px;padding:15px 20px;font-size:16px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.fab{position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:6}
+.fab button{flex:1;border:0;border-radius:999px;padding:14px 8px;font-size:15px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .fab .cam{background:#0f766e;color:#fff}.fab .man{background:#fff;color:#0f766e}
 .modal{position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:flex-end;z-index:20}
 .modal.show{display:flex}
@@ -67,9 +67,11 @@ label{display:block;font-size:13px;color:#475569;margin:10px 0 3px}
 
 <div class="fab">
   <button class="man" id="addMan">✍️ Ydawi</button>
+  <button class="man" id="addGal">🖼️ Galerie</button>
   <button class="cam" id="addCam">📷 Sswer</button>
 </div>
 <input id="file" type="file" accept="image/*" capture="environment" hidden>
+<input id="gfile" type="file" accept="image/*" multiple hidden>
 
 <div class="modal" id="modal"><div class="sheet">
   <h2 id="mt">Colis jdid</h2>
@@ -156,14 +158,14 @@ function openForm(it,preview,raw){
   $('raw').style.display=raw?'block':'none';$('raw').textContent=raw||'';
   $('ocrs').textContent='';$('modal').classList.add('show');
 }
-$('cancel').onclick=()=>$('modal').classList.remove('show');
+$('cancel').onclick=()=>{$('modal').classList.remove('show');nextInQueue()};
 $('addMan').onclick=()=>openForm(null);
 $('save').onclick=()=>{
   const d={num:$('f_num').value.trim(),tel:$('f_tel').value.replace(/[^\d+]/g,''),price:$('f_price').value.trim(),zone:$('f_zone').value.trim()};
   if(!d.num&&!d.tel){alert('Zid 3la l9all numéro wla tel');return}
   if(editId)Object.assign(items.find(i=>i.id===editId),d);
   else items.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),status:'attente',...d});
-  save();$('modal').classList.remove('show');render();
+  save();$('modal').classList.remove('show');render();nextInQueue();
 };
 
 /* ---------- OCR ---------- */
@@ -302,8 +304,12 @@ const setS=t=>$('ocrs').textContent=t;
 function checkTel(){const v=$('f_tel').value.replace(/\D/g,'');$('f_tel').classList.toggle('bad',!!v&&!/^0[5-7]\d{8}$/.test(v))}
 $('f_tel').oninput=checkTel;
 $('addCam').onclick=()=>$('file').click();
-$('file').onchange=async e=>{
-  const f=e.target.files[0];e.target.value='';if(!f)return;
+let queue=[];
+function nextInQueue(){const f=queue.shift();if(f)processFile(f)}
+function pick(e){queue=[...e.target.files];e.target.value='';nextInQueue()}
+$('file').onchange=pick;$('gfile').onchange=pick;
+$('addGal').onclick=()=>$('gfile').click();
+async function processFile(f){
   openForm(null);setS('⏳ Kan9ass l\'étiquette...');
   try{
     const img=await loadImg(f),base=labelCanvas(img);
