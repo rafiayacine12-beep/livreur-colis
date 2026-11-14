@@ -315,6 +315,21 @@ function nextInQueue(){const f=queue.shift();if(f)processFile(f)}
 function pick(e){queue=[...e.target.files];e.target.value='';nextInQueue()}
 $('file').onchange=pick;$('gfile').onchange=pick;
 $('addGal').onclick=()=>$('gfile').click();
+async function aiRead(base){
+  const body=JSON.stringify({image:base.toDataURL('image/jpeg',.85)});
+  for(let n=0;n<2;n++){
+    const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),30000);
+    try{
+      let pass='';try{pass=localStorage.getItem('livreur_pass')||''}catch(_){}
+      const r=await fetch('api/read',{method:'POST',headers:{'content-type':'application/json','x-app-pass':pass},body,signal:ctl.signal});
+      clearTimeout(to);
+      if(r.status===401){const p=prompt("Mot de passe dyal l'app:");if(!p)return null;try{localStorage.setItem('livreur_pass',p)}catch(_){}continue}
+      if(!r.ok)return null;
+      return await r.json();
+    }catch(e){clearTimeout(to);return null}
+  }
+  return null;
+}
 async function processFile(f){
   openForm(null);setS('⏳ Kan9ass l\'étiquette...');
   try{
@@ -323,6 +338,17 @@ async function processFile(f){
     setS('⏳ Kan9ra QR code...');
     const qrNum=await qrScan([base,toCanvas(img,1800)]);
     if(qrNum)$('f_num').value=qrNum;
+    setS('🤖 AI kat9ra l\'étiquette...');
+    const ai=await aiRead(base);
+    if(ai&&(ai.tel||ai.prix||ai.ville||ai.num)){
+      const num=qrNum||ai.num;
+      if(num)$('f_num').value=num;if(ai.tel)$('f_tel').value=ai.tel;if(ai.prix!=='')$('f_price').value=ai.prix;if(ai.ville)$('f_zone').value=ai.ville;
+      checkTel();
+      const miss=[!num&&'numéro',!ai.tel&&'tel',ai.prix===''&&'taman',!ai.ville&&'ville'].filter(Boolean);
+      setS(miss.length?'🤖 AI ma l9atch: '+miss.join(', ')+'. Kmmel b yddk.':'✅ AI qrat koulchi. Tchecki m3a tswira 9bel ma tsajjel');
+      return;
+    }
+    setS('⏳ AI ma khdmatch, kanjarreb l\'OCR...');
     if(!worker){setS('⏳ Kan7mmel l\'OCR (awel mra khass internet, chwiya)...');
       worker=await Tesseract.createWorker('fra',1,{logger:m=>{if(m.status==='recognizing text')setS('⏳ Kanqra... '+Math.round(m.progress*100)+'%')}});
       await worker.setParameters({tessedit_pageseg_mode:'6'})}
